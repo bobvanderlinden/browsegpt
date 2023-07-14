@@ -7,6 +7,7 @@ import { VDOMNode, stringifyVDOM, toVDOM } from "./html/vdom";
 import { OpenAIModel, fitsContext } from "./openai";
 import { LLM } from "./llm";
 import { multiline } from "./multiline";
+import { pack } from "./html/pack";
 
 export async function analyze({
   llm,
@@ -55,24 +56,26 @@ function getFittingMessages({
   history: ChatCompletionRequestMessage[];
   htmlRoot: VDOMNode;
 }): ChatCompletionRequestMessage[] | null {
-  const htmlDepth = maxDepth(htmlRoot);
-  return find(
-    (messages) => messages != null,
-    map((depth) => {
-      const html = stringifyVDOM(snipAtDepth(htmlRoot, depth));
-      const messages = createMessages({ history, html });
-      return fitsContext({ model, messages }) ? messages : null;
-    }, range(htmlDepth, 0, -1))
-  );
+  const packedVdom = pack({
+    root: htmlRoot,
+    fits(vdom) {
+      return fitsContext({
+        model,
+        messages: createMessages({ history, vdom }),
+      });
+    },
+  });
+  return packedVdom ? createMessages({ history, vdom: packedVdom }) : null;
 }
 
 function createMessages({
   history,
-  html,
+  vdom,
 }: {
   history: ChatCompletionRequestMessage[];
-  html: string;
+  vdom: VDOMNode;
 }): ChatCompletionRequestMessage[] {
+  const html = stringifyVDOM(vdom);
   return [
     ...history,
     {
