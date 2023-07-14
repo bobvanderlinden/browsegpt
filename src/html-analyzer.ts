@@ -1,7 +1,7 @@
 import { ChatCompletionRequestMessage } from "openai";
 import { readVDOMFile } from "./html/parse";
 import { stripNode } from "./html/strip";
-import { maxDepth, snipAtDepth } from "./html/depth";
+import { maxDepth, snipAtDepth } from "./html/snip";
 import { find, map, range } from "./iterable";
 import { VDOMNode, stringifyVDOM, toVDOM } from "./html/vdom";
 import { OpenAIModel, fitsContext } from "./openai";

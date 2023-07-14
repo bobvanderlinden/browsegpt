@@ -1,4 +1,7 @@
+import { flatMap } from "../iterable";
 import { VDOMNode } from "./vdom";
+
+const snipIndicator = "[...]";
 
 export function snipAtDepth(node: VDOMNode, maxDepth: number): VDOMNode {
   switch (typeof node) {
@@ -10,7 +13,7 @@ export function snipAtDepth(node: VDOMNode, maxDepth: number): VDOMNode {
         attributes: node.attributes,
         children:
           maxDepth === 0
-            ? ["[...]"]
+            ? [snipIndicator]
             : node.children.map((child) => snipAtDepth(child, maxDepth - 1)),
       };
     default:

@@ -1,5 +1,5 @@
 import { html } from "../html";
-import { snipAtDepth } from "./depth";
+import { snipAtDepth } from "./snip";
 import { parseVDOM } from "./parse";
 import { stringifyVDOM } from "./vdom";
 
