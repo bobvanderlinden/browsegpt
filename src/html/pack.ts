@@ -1,22 +1,44 @@
-import { find, map, range } from "../iterable";
-import { maxDepth, snipAtDepth } from "./snip";
-import { VDOMNode } from "./vdom";
+import { getDepth, snipAtDepth, snipWidestNode } from "./snip";
+import { VDOMNode, stringifyVDOM } from "./vdom";
 
 /**
- * Compresses the HTML tree to the smallest possible size that still fits.
+ * Removes parts of the HTML tree to the smallest possible size that still fits.
  * @param fits A function that returns true if the given VDOM node fits.
  * @param root The root of the HTML tree to compress.
  */
 export function pack({
-  fits,
+  getWeight,
+  maxWeight,
   root,
 }: {
-  fits: (vdom: VDOMNode) => boolean;
+  getWeight: (vdom: VDOMNode) => number;
+  maxWeight: number;
   root: VDOMNode;
-}): VDOMNode | null {
-  const htmlDepth = maxDepth(root);
-  return find(
-    (packedNode) => fits(packedNode),
-    map((depth) => snipAtDepth(root, depth), range(htmlDepth, 0, -1))
-  );
+}): VDOMNode {
+  let maxDepth = getDepth(root);
+  let currentWeight: number;
+  while ((currentWeight = getWeight(root)) > maxWeight) {
+    let depthSnip = snipAtDepth(root, maxDepth);
+    while (getWeight(depthSnip) >= currentWeight && maxDepth > 1) {
+      maxDepth--;
+      depthSnip = snipAtDepth(root, maxDepth);
+    }
+
+    const breadthSnip = snipWidestNode(root);
+
+    const depthSnipWeight = getWeight(depthSnip);
+    const breadthSnipWeight = getWeight(breadthSnip);
+    if (
+      currentWeight <= depthSnipWeight &&
+      currentWeight <= breadthSnipWeight
+    ) {
+      // We were not able to make it smaller.
+      break;
+    } else if (depthSnipWeight < breadthSnipWeight) {
+      root = depthSnip;
+    } else if (depthSnipWeight > breadthSnipWeight) {
+      root = breadthSnip;
+    }
+  }
+  return root;
 }

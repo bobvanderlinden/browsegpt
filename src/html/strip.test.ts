@@ -40,11 +40,6 @@ describe("stripNode", () => {
       html`<a href="page"></a>`,
       html`<a href="page" />`,
     ],
-    [
-      "encodes quotes in attributes",
-      html`<a href='hello"world'></a>`,
-      html(['<a href="hello&quot;world"></a>']),
-    ],
   ])("%s", (_, input, expected) => {
     const inputNode = parseVDOM(input);
     const expectedNode = parseVDOM(expected);

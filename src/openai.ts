@@ -50,7 +50,7 @@ export async function chatCompletionRequest(
   return await response.json();
 }
 
-const maxTokensPerModel = {
+export const maxTokensPerModel = {
   "gpt-4": 8192,
   "gpt-4-0613": 8192,
   "gpt-4-32k": 32768,
@@ -93,14 +93,4 @@ export function countTokens({
       messages
     )
   );
-}
-
-export function fitsContext({
-  model,
-  messages,
-}: {
-  model: TiktokenModel;
-  messages: ChatCompletionRequestMessage[];
-}): boolean {
-  return countTokens({ model, messages }) <= maxTokensPerModel[model];
 }

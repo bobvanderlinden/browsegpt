@@ -1,6 +1,5 @@
 import { html } from "../html";
-import { map } from "../iterable";
-import { parseVDOM, successiveMatches, tokenize } from "./vdom";
+import { parseVDOM, successiveMatches, tokenize } from "./parse";
 
 describe("successiveMatches", () => {
   test("matches multiple", () => {
