@@ -1,20 +1,9 @@
-import { isAriaFocusable } from "../aria";
-import * as aria from "aria-api";
-import {
-  concatStrings,
-  filter,
-  flatMap,
-  flow,
-  map,
-  mapFilter,
-  scan,
-  take,
-  takeWhile,
-} from "../iterable";
+import { filter } from "../iterable";
 import { annotateMetadata } from "../metadata";
-import { getActiveElement, getAriaInfo, getElement } from "./watch";
+import { getAriaInfo, getElement } from "./watch";
 import { stringifyVDOM, toVDOM } from "../html/vdom";
 import { stripNode } from "../html/strip";
+import { delay } from "../async";
 
 function getFocusableElements(): HTMLElement[] {
   let elements: Iterable<HTMLElement> = document.querySelectorAll(
@@ -23,6 +12,29 @@ function getFocusableElements(): HTMLElement[] {
   elements = filter((e) => e.tabIndex >= 0, elements);
   elements = filter((e) => e.ariaHidden != "true" && !e.hidden, elements);
   return [...elements].sort((a, b) => b.tabIndex - a.tabIndex);
+}
+
+function focusElement(element: HTMLElement) {
+  element.focus();
+  element.scrollIntoView();
+  lookIndicator(element);
+}
+
+function lookIndicator(element: HTMLElement) {
+  const indicator = document.createElement("div");
+  indicator.style.position = "absolute";
+  indicator.style.top = `${element.offsetTop}px`;
+  indicator.style.left = `${element.offsetLeft}px`;
+  indicator.textContent = "👀";
+  indicator.style.fontSize = "2em";
+  indicator.style.zIndex = "99999";
+  document.body.appendChild(indicator);
+  const animation = indicator.animate([{ opacity: 1 }, { opacity: 0 }], {
+    duration: 2000,
+  });
+  animation.onfinish = () => {
+    indicator.remove();
+  };
 }
 
 export const ping = async ({}) => {
@@ -71,8 +83,61 @@ export const type = annotateMetadata(
   },
   async ({ selector, text }) => {
     const element = getElement(selector);
-    element.focus();
-    element.value = text;
+    focusElement(element);
+    if ("clear" in element) {
+      element.clear();
+    }
+    let textSoFar = "";
+    for (const char of text) {
+      textSoFar += char;
+      const keyCode = char.charCodeAt(0);
+      const key = char.toLowerCase();
+      const shiftKey = char !== key;
+      const eventDict = {
+        bubbles: true,
+        cancelable: true,
+        key,
+        keyCode,
+        shiftKey,
+      };
+      element.dispatchEvent(
+        new KeyboardEvent("keydown", {
+          ...eventDict,
+        })
+      );
+      element.dispatchEvent(
+        new KeyboardEvent("keypress", {
+          ...eventDict,
+        })
+      );
+      element.dispatchEvent(
+        new KeyboardEvent("keyup", {
+          ...eventDict,
+        })
+      );
+      if ("value" in element) {
+        element.value = textSoFar;
+      } else if (element.isContentEditable) {
+        window
+          .getSelection()
+          ?.getRangeAt(0)
+          ?.insertNode(document.createTextNode(char));
+      }
+      await delay(1);
+    }
+    element.dispatchEvent(
+      new InputEvent("input", {
+        bubbles: true,
+        cancelable: true,
+        data: text,
+      })
+    );
+    element.dispatchEvent(
+      new Event("change", {
+        bubbles: true,
+        cancelable: true,
+      })
+    );
   }
 );
 export const pressTab = annotateMetadata(
@@ -128,7 +193,7 @@ export const pressEnter = annotateMetadata(
   },
   async ({ selector }) => {
     const element = getElement(selector);
-    element.focus();
+    focusElement(element);
     element.dispatchEvent(
       new KeyboardEvent("keydown", {
         bubbles: true,
@@ -196,24 +261,6 @@ export const pressEnter = annotateMetadata(
 //     lookAtNextAria();
 //   }
 // );
-export const focusElement = annotateMetadata(
-  {
-    name: "focusElement",
-    description: "Focus the element matching the given selector",
-    parameters: {
-      type: "object",
-      properties: {
-        selector: {
-          type: "string",
-        },
-      },
-      required: ["selector"],
-    },
-  },
-  async ({ selector }) => {
-    getElement(selector).focus();
-  }
-);
 // export const lookAtSelector = annotateMetadata(
 //   {
 //     name: "lookAtSelector",
@@ -290,7 +337,12 @@ export const click = annotateMetadata(
     },
   },
   async ({ selector }) => {
-    getElement(selector).click();
+    const element = getElement(selector);
+    focusElement(element);
+    element.click();
+    if (element.type === "submit") {
+      element.closest("form")?.submit();
+    }
   }
 );
 export const submit = annotateMetadata(
