@@ -3,7 +3,9 @@ import {
   createReceiveProxy,
   initChromeRuntimeReceiver,
 } from "../message-proxy";
-import { init as initWatch } from "./watch";
 
-initWatch();
-initChromeRuntimeReceiver(messageHandlers);
+if (!window.__browsegpt_content_init) {
+  window.__browsegpt_content_init = true;
+  // initWatch();
+  initChromeRuntimeReceiver(messageHandlers);
+}
