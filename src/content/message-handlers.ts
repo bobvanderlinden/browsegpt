@@ -62,10 +62,20 @@ export const getState =
 export const getPageVDOM = async ({}) => {
   return toVDOM(document.documentElement);
 };
+
+const keys = {
+  "\n": {
+    keyCode: 13,
+    key: "Enter",
+    code: "Enter",
+  },
+};
+
 export const type = annotateMetadata(
   {
     name: "type",
-    description: "Type into the element with the given selector",
+    description:
+      "Type into the element with the given selector. \\n is interpreted as the enter key.",
     parameters: {
       type: "object",
       properties: {
@@ -84,58 +94,111 @@ export const type = annotateMetadata(
   async ({ selector, text }) => {
     const element = getElement(selector);
     focusElement(element);
-    if ("clear" in element) {
-      element.clear();
+
+    // Clear the element.
+    if (element instanceof HTMLInputElement) {
+      element.value = "";
+    } else if (element instanceof HTMLTextAreaElement) {
+      element.value = "";
+    } else if (element instanceof HTMLSelectElement) {
+      element.value = "";
+    } else if (element.isContentEditable) {
+      const range = document.getSelection()!;
+      range.selectAllChildren(element);
+      range.deleteFromDocument();
     }
-    let textSoFar = "";
+
+    // Simulate typing the individual characters.
     for (const char of text) {
-      textSoFar += char;
       const keyCode = char.charCodeAt(0);
       const key = char.toLowerCase();
+      const code = `Key${key.toUpperCase()}`;
       const shiftKey = char !== key;
-      const eventDict = {
+      const keyboardEventDict = {
         bubbles: true,
         cancelable: true,
-        key,
         keyCode,
+        key,
+        code,
         shiftKey,
+        ...keys[char],
       };
       element.dispatchEvent(
         new KeyboardEvent("keydown", {
-          ...eventDict,
+          ...keyboardEventDict,
         })
       );
       element.dispatchEvent(
         new KeyboardEvent("keypress", {
-          ...eventDict,
+          ...keyboardEventDict,
         })
       );
+      if (char === "\n" && element instanceof HTMLInputElement) {
+        const beforeinput = new InputEvent("beforeinput", {
+          bubbles: true,
+          cancelable: true,
+          data: char,
+          inputType: "insertLineBreak",
+        });
+        if (!beforeinput.defaultPrevented) {
+          const form = element.closest("form");
+          if (form) {
+            form.querySelector("input[type=submit]")?.click();
+          }
+        }
+      } else {
+        const beforeinput = new InputEvent("beforeinput", {
+          bubbles: true,
+          cancelable: true,
+          data: char,
+          inputType: "insertText",
+        });
+        element.dispatchEvent(beforeinput);
+        if (!beforeinput.defaultPrevented) {
+          if (element instanceof HTMLInputElement) {
+            element.value += char;
+          } else if (element instanceof HTMLTextAreaElement) {
+            element.value += char;
+          } else if (element.isContentEditable) {
+            window
+              .getSelection()
+              ?.getRangeAt(0)
+              ?.insertNode(document.createTextNode(char));
+          }
+          element.dispatchEvent(
+            new InputEvent("input", {
+              bubbles: true,
+              cancelable: false,
+              data: char,
+              inputType: "insertText",
+            })
+          );
+        }
+      }
       element.dispatchEvent(
         new KeyboardEvent("keyup", {
-          ...eventDict,
+          ...keyboardEventDict,
         })
       );
-      if ("value" in element) {
-        element.value = textSoFar;
-      } else if (element.isContentEditable) {
-        window
-          .getSelection()
-          ?.getRangeAt(0)
-          ?.insertNode(document.createTextNode(char));
-      }
       await delay(1);
     }
     element.dispatchEvent(
-      new InputEvent("input", {
+      new Event("change", {
         bubbles: true,
-        cancelable: true,
-        data: text,
+        cancelable: false,
+      })
+    );
+    element.blur();
+    element.dispatchEvent(
+      new FocusEvent("blur", {
+        bubbles: false,
+        cancelable: false,
       })
     );
     element.dispatchEvent(
-      new Event("change", {
+      new FocusEvent("focusout", {
         bubbles: true,
-        cancelable: true,
+        cancelable: false,
       })
     );
   }
@@ -361,9 +424,7 @@ export const submit = annotateMetadata(
   async ({ selector }) => {
     const form = getElement(selector).closest("form");
     if (!form) {
-      throw new Error(
-        "The focused element is not in a form. Use 'pressTab' to navigate to an element that is inside a form."
-      );
+      throw new Error("The element is not in a form.");
     }
     return form.submit();
   }
@@ -372,7 +433,7 @@ export const submit = annotateMetadata(
 export const querySelectorAll = annotateMetadata(
   {
     name: "querySelectorAll",
-    description: "Query for elements matching the given selector",
+    description: "Query for multiple elements matching the given selector",
     parameters: {
       type: "object",
       properties: {
@@ -385,9 +446,35 @@ export const querySelectorAll = annotateMetadata(
   async ({ selector }) => {
     return [...document.querySelectorAll(selector)]
       .map((node) =>
-        stripNode(toVDOM(node)).map((vdomNode) => stringifyVDOM(vdomNode))
+        stripNode(toVDOM(node))
+          .map((vdomNode) => stringifyVDOM(vdomNode))
+          .join("")
       )
       .join("\n");
+  }
+);
+
+export const querySelector = annotateMetadata(
+  {
+    name: "querySelectorAll",
+    description: "Query for single element matching the given selector",
+    parameters: {
+      type: "object",
+      properties: {
+        selector: {
+          type: "string",
+        },
+      },
+    },
+  },
+  async ({ selector }) => {
+    const element = document.querySelector(selector);
+    if (!element) {
+      throw new Error(`No element matching selector found.`);
+    }
+    return stripNode(toVDOM(element))
+      .map((vdomNode) => stringifyVDOM(vdomNode))
+      .join("");
   }
 );
 

@@ -90,7 +90,7 @@ export function getActiveElement() {
   return document.activeElement;
 }
 
-export function getElement(selector) {
+export function getElement(selector): HTMLElement {
   // Workaround querySelector not able to use numbers as ids.
   selector = selector.replace(/#(\d+)$/g, "[id='$1']"); // "input#123" -> "input[id='123']
 

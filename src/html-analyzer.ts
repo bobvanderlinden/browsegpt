@@ -15,7 +15,7 @@ export async function analyze({
   history: ChatCompletionRequestMessage[];
   document: VDOMNode;
 }) {
-  const model = "gpt-3.5-turbo-16k-0613";
+  const model = "gpt-4-1106-preview";
   const strippedDocument = stripNode(document);
   console.log({ strippedDocument });
   if (strippedDocument.length === 0) {

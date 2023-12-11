@@ -51,6 +51,7 @@ export async function chatCompletionRequest(
 }
 
 export const maxTokensPerModel = {
+  "gpt-4-1106-preview": 128000,
   "gpt-4": 8192,
   "gpt-4-0613": 8192,
   "gpt-4-32k": 32768,
